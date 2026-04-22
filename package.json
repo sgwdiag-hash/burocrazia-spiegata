@@ -12,7 +12,6 @@
     "@anthropic-ai/sdk": "^0.90.0",
     "@supabase/ssr": "^0.10.2",
     "@supabase/supabase-js": "^2.103.3",
-    "@tailwindcss/postcss": "^4.2.4",
     "nanoid": "^5.0.7",
     "next": "^16.2.4",
     "react": "^19.0.0",
@@ -20,6 +19,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.2.4",
+    "tailwindcss": "^4.2.4",
     "@types/node": "^20.10.5",
     "@types/react": "^18.2.46",
     "@types/react-dom": "^18.2.18",
@@ -27,7 +28,6 @@
     "eslint": "^9.0.0",
     "eslint-config-next": "^16.2.4",
     "postcss": "^8.4.32",
-    "tailwindcss": "^3.4.1",
     "typescript": "^5.3.3"
   }
 }
