@@ -13,70 +13,59 @@ REGULI ABSOLUTE - NU ÎNCĂLCA NICIODATĂ:
 
 2. **ZERO INVENȚIE**: Dacă informația NU e în document, scrie explicit "Nu este specificat în document". NU inventa, NU presupune, NU completa cu informații generale.
 
-3. **VERIFICARE DUBLĂ**: Înainte să dai răspunsul final, VERIFICĂ CIFRELE și DATELE de 2 ori - compară cu textul original. Dacă ceva e neclar sau ilizibil, spune-o.
+3. **VERIFICARE DUBLĂ**: Înainte să dai răspunsul final, VERIFICĂ CIFRELE și DATELE de 2 ori - compară cu textul original.
 
 4. **ATENȚIE LA DETALII ITALIENE**:
-   - Virgulă (,) = separator zecimal italian (458,32 = patru sute cincizeci și opt virgulă treizeci și doi)
-   - Punct (.) = separator de mii (1.458,32 = o mie patru sute cincizeci și opt virgulă treizeci și doi)
+   - Virgulă (,) = separator zecimal italian (458,32)
+   - Punct (.) = separator de mii (1.458,32)
    - Data formatul italian: GG/MM/AAAA (30/06/2026 = 30 iunie 2026)
-   
-5. **LIMBAJ CLAR**: Scrii pentru un român care nu cunoaște birocrația italiană. Explică jargonul italian. Evită ambiguitatea.
 
-6. **SIGURANȚĂ LEGALĂ**: La sfârșit menționezi că analiza e informativă și că pentru decizii importante să consulte un comercialista autorizat.
+5. **LIMBAJ CLAR**: Scrii pentru un român care nu cunoaște birocrația italiană. Explică jargonul.
 
----
+6. **SIGURANȚĂ LEGALĂ**: Menționezi la sfârșit că analiza e informativă.
 
-**PROCES DE LUCRU OBLIGATORIU:**
-
-Pas 1 (intern): Citește textul complet o dată
-Pas 2 (intern): Identifică cifrele, datele, instituția, tipul documentului
-Pas 3 (intern): Recitește textul și VERIFICĂ fiecare cifră/dată extrasă
-Pas 4 (intern): Compune răspunsul structurat
-Pas 5 (intern): RECITEȘTE răspunsul și compară cu textul original
-Pas 6: Livrează răspunsul
+7. **CONFIDENCE SCORE**: La ÎNCEPUTUL răspunsului, evaluează cât de sigur ești de acuratețea analizei tale (0-100%). Factori:
+   - Dacă documentul e clar și complet → 85-100%
+   - Dacă lipsesc informații sau sunt ambigue → 60-85%
+   - Dacă documentul e neclar, trunchiat sau ciudat → 30-60%
+   - Dacă nu poți analiza corect → <30%
 
 ---
 
 **FORMAT RĂSPUNS OBLIGATORIU (nu schimba structura):**
 
+CONFIDENCE: [număr între 0-100]
+
 ## 📋 CE ESTE ACEST DOCUMENT
-[Tip document + instituție care l-a trimis, în 2-3 propoziții simple]
+[Tip document + instituție, în 2-3 propoziții]
 
 ## ❓ DE CE L-AI PRIMIT
-[Explicație cauzei, fără jargon]
+[Explicație cauzei]
 
 ## 💰 SUME DE PLATĂ
-[LISTĂ TOATE SUMELE EXACT, fiecare cu descrierea ei. Dacă nu există, scrie "Nu există sume de plată"]
-[Format: **XXX,XX EUR** - descriere]
+[Toate sumele EXACT. Format: **XXX,XX EUR** - descriere]
 
 ## 📅 TERMENE IMPORTANTE
-[TOATE datele exacte din document. Format: **GG luna AAAA**]
-[Dacă nu există termene, scrie "Nu există termene specifice"]
+[Toate datele. Format: **GG luna AAAA**]
 
 ## ✅ CE TREBUIE SĂ FACI
-[PAȘI NUMEROTAȚI, concreți, în ordine]
-1. [primul pas]
-2. [al doilea pas]
-...
+[Pași numerotați]
 
 ## ⚠️ AVERTISMENTE
-[Consecințele neacțiunii sau riscuri importante]
+[Consecințe]
 
 ## 💡 SFAT PRACTIC
-[Un sfat util concret din experiența românilor din Italia]
+[Sfat util pentru români]
 
 ## 🔍 DATE EXTRASE DIN DOCUMENT (pentru verificare)
-[Listează TOATE cifrele și datele pe care le-ai folosit, exact cum apar în document]
-- Suma X: [valoarea exactă copiată din text]
-- Data Y: [valoarea exactă copiată din text]
-- Cod Z: [valoarea exactă copiată din text]
+[Listă tabelară cu toate cifrele și datele extrase exact]
 
 ## ⚖️ DISCLAIMER
-Acest raport are caracter exclusiv informativ. Pentru decizii fiscale sau juridice, consultă un comercialista sau avvocato autorizat în Italia.
+Acest raport are caracter exclusiv informativ. Pentru decizii fiscale, consultă un comercialista sau avvocato autorizat în Italia.
 
 ---
 
-**IMPORTANT**: Dacă NU poți identifica cu certitudine un element (instituție, sumă, dată), SPUNE EXPLICIT: "Acest detaliu nu este clar în document" - NU INVENTA.`;
+IMPORTANT: Începe MEREU cu linia "CONFIDENCE: XX" (fără ## în față, doar text simplu).`;
 
 export async function POST(request: NextRequest) {
   try {
@@ -96,35 +85,44 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Prima analiză cu temperature 0 pentru determinism maxim
     const message = await client.messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 3000,
-      temperature: 0,  // ZERO creativitate, maxim determinism
+      temperature: 0,
       system: SYSTEM_PROMPT,
       messages: [
         {
           role: "user",
-          content: `Analizează acest document italian cu MAXIMĂ ATENȚIE la cifre și date.
-
-IMPORTANT: Înainte să-mi dai răspunsul, verifică DE 2 ORI fiecare cifră și dată.
+          content: `Analizează acest document italian cu MAXIMĂ ATENȚIE.
 
 TEXT DOCUMENT:
 ===============================================
 ${text}
 ===============================================
 
-Analizează și răspunde în formatul structurat specificat. La secțiunea "DATE EXTRASE DIN DOCUMENT" listează TOATE cifrele și datele exact cum apar în textul de mai sus, ca formă de auto-verificare.`,
+Răspunde în formatul structurat. Începe MEREU cu "CONFIDENCE: XX" (0-100).`,
         },
       ],
     });
 
-    const response =
+    const fullResponse =
       message.content[0].type === "text" ? message.content[0].text : "";
+
+    // Extract confidence score from response
+    const confidenceMatch = fullResponse.match(/CONFIDENCE:\s*(\d+)/i);
+    const confidence = confidenceMatch ? parseInt(confidenceMatch[1]!) : 75;
+
+    // Remove CONFIDENCE line from displayed response
+    const response = fullResponse.replace(/CONFIDENCE:\s*\d+\s*\n?/i, "").trim();
+
+    // Generate unique analysis ID for feedback tracking
+    const analysisId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
     return NextResponse.json({
       success: true,
       response,
+      confidence,
+      analysis_id: analysisId,
       tokens_used: message.usage.input_tokens + message.usage.output_tokens,
       model: "claude-haiku-4-5-20251001",
     });
@@ -133,22 +131,15 @@ Analizează și răspunde în formatul structurat specificat. La secțiunea "DAT
 
     if (error?.status === 401) {
       return NextResponse.json(
-        { error: "API key invalid. Verifică .env.local" },
+        { error: "API key invalid." },
         { status: 401 }
       );
     }
 
     if (error?.status === 429) {
       return NextResponse.json(
-        { error: "Prea multe cereri. Așteaptă 1 minut și încearcă din nou." },
+        { error: "Prea multe cereri. Așteaptă 1 minut." },
         { status: 429 }
-      );
-    }
-
-    if (error?.status === 529) {
-      return NextResponse.json(
-        { error: "AI-ul e ocupat. Încearcă în 30 de secunde." },
-        { status: 529 }
       );
     }
 
