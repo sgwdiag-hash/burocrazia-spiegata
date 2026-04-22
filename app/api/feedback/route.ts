@@ -1,43 +1,199 @@
+import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 
-// În viitor vom salva în Supabase. Pentru acum, salvăm în log.
-// Tu vei vedea feedback-ul în Vercel Logs.
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
+
+const SYSTEM_PROMPT = `Ești un consultant fiscal expert pentru comunitatea română din Italia, specializat în documente birocratice italiene. Lucrezi cu precizie maximă, ca un avocat sau contabil profesionist.
+
+REGULI ABSOLUTE - NU ÎNCĂLCA NICIODATĂ:
+
+1. **PRECIZIE MATEMATICĂ**: Cifrele (sume, coduri, numere) trebuie copiate EXACT din document, caracter cu caracter. Nu aproxima, nu rotunji, nu reinterpreta.
+
+2. **ZERO INVENȚIE**: Dacă informația NU e în document, scrie explicit "Nu este specificat în document". NU inventa, NU presupune, NU completa cu informații generale.
+
+3. **VERIFICARE DUBLĂ**: Înainte să dai răspunsul final, VERIFICĂ CIFRELE și DATELE de 2 ori - compară cu textul original.
+
+4. **ATENȚIE LA DETALII ITALIENE**:
+   - Virgulă (,) = separator zecimal italian (458,32)
+   - Punct (.) = separator de mii (1.458,32)
+   - Data formatul italian: GG/MM/AAAA (30/06/2026 = 30 iunie 2026)
+
+5. **LIMBAJ CLAR**: Scrii pentru un român care nu cunoaște birocrația italiană. Explică jargonul.
+
+6. **SIGURANȚĂ LEGALĂ**: Menționezi la sfârșit că analiza e informativă.
+
+7. **CONFIDENCE SCORE**: La ÎNCEPUTUL răspunsului, evaluează cât de sigur ești (0-100%). Factori:
+   - Document clar și complet → 85-100%
+   - Informații parțiale sau ambigue → 60-85%
+   - Document neclar sau trunchiat → 30-60%
+   - Nu poți analiza → <30%
+
+8. **PENTRU IMAGINI**: Dacă documentul e o poză:
+   - Citește TOT textul vizibil din imagine
+   - Dacă poza e blurată/neclară, spune EXPLICIT și dă confidence <50%
+   - Sugerează poză mai clară dacă e cazul
+
+---
+
+**FORMAT RĂSPUNS OBLIGATORIU:**
+
+CONFIDENCE: [număr între 0-100]
+
+## 📋 CE ESTE ACEST DOCUMENT
+[Tip document + instituție, 2-3 propoziții]
+
+## ❓ DE CE L-AI PRIMIT
+[Explicație cauzei]
+
+## 💰 SUME DE PLATĂ
+[Toate sumele EXACT. Format: **XXX,XX EUR** - descriere]
+
+## 📅 TERMENE IMPORTANTE
+[Toate datele. Format: **GG luna AAAA**]
+
+## ✅ CE TREBUIE SĂ FACI
+[Pași numerotați]
+
+## ⚠️ AVERTISMENTE
+[Consecințe]
+
+## 💡 SFAT PRACTIC
+[Sfat util pentru români]
+
+## 🔍 DATE EXTRASE DIN DOCUMENT
+[Listă tabelară cu toate cifrele și datele extrase]
+
+## ⚖️ DISCLAIMER
+Acest raport are caracter exclusiv informativ. Pentru decizii fiscale, consultă un comercialista sau avvocato autorizat în Italia.
+
+---
+
+IMPORTANT: Începe MEREU cu linia "CONFIDENCE: XX" (fără ## în față).`;
 
 export async function POST(request: NextRequest) {
   try {
-    const { analysis_id, rating, comment, document_text, response } =
-      await request.json();
+    const body = await request.json();
+    const { text, image, imageType } = body;
 
-    if (!analysis_id || !rating) {
+    // Validare: trebuie SAU text SAU imagine
+    if (!text && !image) {
       return NextResponse.json(
-        { error: "Date incomplete" },
+        { error: "Te rog adaugă textul documentului sau încarcă o imagine" },
         { status: 400 }
       );
     }
 
-    // Log feedback (vizibil în Vercel Logs)
-    const feedbackData = {
-      timestamp: new Date().toISOString(),
-      analysis_id,
-      rating, // "positive" | "negative" | "partial"
-      comment: comment || null,
-      document_preview: document_text?.substring(0, 200) || null,
-      response_preview: response?.substring(0, 200) || null,
-    };
+    // Dacă e text, validare lungime
+    if (text && text.trim().length < 10) {
+      return NextResponse.json(
+        { error: "Textul e prea scurt (minim 10 caractere)" },
+        { status: 400 }
+      );
+    }
 
-    console.log("📊 FEEDBACK RECEIVED:", JSON.stringify(feedbackData, null, 2));
+    if (text && text.length > 15000) {
+      return NextResponse.json(
+        { error: "Documentul e prea lung (maxim 15.000 caractere)" },
+        { status: 400 }
+      );
+    }
 
-    // Când vei avea Supabase, vei salva aici
-    // await supabase.from('feedback').insert(feedbackData);
+    // Construim content pentru Claude (text SAU imagine)
+    let userContent: any;
+
+    if (image) {
+      // Analizăm imagine (foto document)
+      userContent = [
+        {
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: imageType || "image/jpeg",
+            data: image,
+          },
+        },
+        {
+          type: "text",
+          text: `Analizează documentul italian din această imagine cu MAXIMĂ ATENȚIE la cifre și date.
+
+Citește TOT textul vizibil. Dacă imaginea e neclară, spune EXPLICIT.
+
+Răspunde în formatul structurat. Începe MEREU cu "CONFIDENCE: XX" (0-100).`,
+        },
+      ];
+    } else {
+      // Analizăm text
+      userContent = [
+        {
+          type: "text",
+          text: `Analizează acest document italian cu MAXIMĂ ATENȚIE.
+
+TEXT DOCUMENT:
+===============================================
+${text}
+===============================================
+
+Răspunde în formatul structurat. Începe MEREU cu "CONFIDENCE: XX" (0-100).`,
+        },
+      ];
+    }
+
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 3000,
+      temperature: 0,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: "user",
+          content: userContent,
+        },
+      ],
+    });
+
+    const fullResponse =
+      message.content[0].type === "text" ? message.content[0].text : "";
+
+    // Extract confidence
+    const confidenceMatch = fullResponse.match(/CONFIDENCE:\s*(\d+)/i);
+    const confidence = confidenceMatch ? parseInt(confidenceMatch[1]!) : 75;
+
+    // Remove CONFIDENCE line from displayed response
+    const response = fullResponse.replace(/CONFIDENCE:\s*\d+\s*\n?/i, "").trim();
+
+    // Generate unique analysis ID
+    const analysisId = `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 
     return NextResponse.json({
       success: true,
-      message: "Mulțumim pentru feedback!",
+      response,
+      confidence,
+      analysis_id: analysisId,
+      tokens_used: message.usage.input_tokens + message.usage.output_tokens,
+      model: "claude-haiku-4-5-20251001",
+      input_type: image ? "image" : "text",
     });
-  } catch (error) {
-    console.error("Feedback error:", error);
+  } catch (error: any) {
+    console.error("Error:", error);
+
+    if (error?.status === 401) {
+      return NextResponse.json(
+        { error: "API key invalid." },
+        { status: 401 }
+      );
+    }
+
+    if (error?.status === 429) {
+      return NextResponse.json(
+        { error: "Prea multe cereri. Așteaptă 1 minut." },
+        { status: 429 }
+      );
+    }
+
     return NextResponse.json(
-      { error: "Eroare la salvare feedback" },
+      { error: "Eroare la procesare. Încearcă din nou." },
       { status: 500 }
     );
   }
