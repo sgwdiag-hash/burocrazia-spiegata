@@ -462,6 +462,9 @@ export default function Home() {
                     )}
                   </button>
 
+<p className="text-center text-xs text-gray-400 mt-3 leading-relaxed">
+                    Non siamo commercialisti né avvocati. Le spiegazioni hanno scopo puramente informativo.
+                  </p>
                   {loading && (
                     <p className="text-center text-sm text-gray-500 mt-3">
                       {imageBase64
