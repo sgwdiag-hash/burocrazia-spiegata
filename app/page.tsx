@@ -240,7 +240,7 @@ export default function Home() {
 
       {/* HERO */}
       <section className="max-w-6xl mx-auto px-6 pt-16 pb-10">
-        <div className="max-w-3xl">
+        <div className="max-w-3xl text-center mx-auto">
           <div className="inline-flex items-center gap-2 bg-[#F5F1E8] border border-gray-200 rounded-full px-4 py-1.5 mb-8">
             <span className="text-xs font-medium text-[#1B4D3E] tracking-wide">
               🇷🇴 Pentru românii din Italia
@@ -254,7 +254,7 @@ export default function Home() {
             în <span className="highlight-yellow">30 secunde.</span>
           </h1>
 
-          <p className="text-lg text-gray-600 leading-relaxed max-w-2xl">
+          <p className="text-lg text-gray-600 leading-relaxed max-w-2xl mx-auto">
             Fotografiază documentul sau lipește textul. AI-ul îți explică ce spune, ce trebuie să faci, până când — în română curată.
           </p>
         </div>
@@ -463,7 +463,7 @@ export default function Home() {
                   </button>
 
 <p className="text-center text-xs text-gray-400 mt-3 leading-relaxed">
-                    Non siamo commercialisti né avvocati. Le spiegazioni hanno scopo puramente informativo.
+                    Non siamo commercialisti o avvocati. Le spiegazioni hanno scopo puramente informativo.
                   </p>
                   {loading && (
                     <p className="text-center text-sm text-gray-500 mt-3">
